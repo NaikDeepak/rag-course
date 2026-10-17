@@ -1,0 +1,35 @@
+# Section 1: Overview of Retrieval-Augmented Generation (RAG)
+Retrieval-Augmented Generation (RAG) combines an information retrieval component with a text generator model.
+RAG addresses three critical limitations of standalone Large Language Models (LLMs):
+1. Hallucinations: Standalone LLMs can fabricate plausible-sounding facts when they lack specific knowledge.
+2. Outdated Knowledge Cutoffs: Pre-trained models do not know about events or documentation written after their training cutoff.
+3. Lack of Private Domain Access: LLMs cannot natively access internal company wikis, private PDFs, or proprietary databases without grounding.
+
+# Section 2: The Two Main Phases of a LangChain RAG Pipeline
+In a LangChain RAG pipeline, the workflow is divided into two main phases:
+
+1. Indexing Phase (Offline Preparation):
+   - Load: Documents are ingested from files or URLs using Document Loaders (such as TextLoader, PyPDFLoader, or WebBaseLoader), producing LangChain Document objects with `page_content` and `metadata`.
+   - Split: Large documents are chunked into smaller overlapping pieces using Text Splitters (such as RecursiveCharacterTextSplitter). We split documents into smaller chunks so they fit within context windows, isolate distinct semantic topics, and produce focused vector embeddings. Using `chunk_overlap` (e.g., 40 to 60 characters) prevents sentences or ideas from being cut in half at chunk boundaries.
+   - Embed & Store: Each chunk is converted into a high-dimensional numerical vector using an Embedding model (like GoogleGenerativeAIEmbeddings or OpenAIEmbeddings) and stored in a Vector Store (such as ChromaDB or FAISS).
+
+2. Retrieval and Generation Phase (Runtime Execution):
+   - Retrieve: Given a user query, the system embeds the query using the exact same Embedding model and performs a similarity search (or Maximum Marginal Relevance search) against the Vector Store to fetch the top-k most relevant chunks.
+   - Augment: The retrieved chunks are formatted into a ChatPromptTemplate alongside the user's question to create an augmented query.
+   - Generate: The augmented prompt is passed to the LLM (such as Gemini 2.5 Flash or GPT-4o-mini) via a LangChain Expression Language (LCEL) chain (`prompt | llm | StrOutputParser()`), which synthesizes a grounded, context-driven response.
+
+# Section 3: Comparing Vector Stores — ChromaDB vs. FAISS
+- ChromaDB is an open-source, AI-native vector database that supports metadata filtering, collections, and easy local persistence out of the box.
+- FAISS (Facebook AI Similarity Search) is a high-performance C++/Python library developed by Meta for ultra-fast dense vector clustering and nearest-neighbor search in memory.
+- In LangChain, both expose the unified `.from_documents(chunks, embeddings)` factory method and `.as_retriever(search_kwargs={"k": k})` interface, allowing you to swap vector stores with a single line of code.
+
+# Section 4: Building Interactive RAG Frontends with Streamlit
+Streamlit makes it straightforward to wrap a LangChain RAG pipeline in an interactive web interface:
+- `st.file_uploader` enables users to upload single or multiple `.txt`, `.md`, and `.pdf` documents dynamically.
+- `st.sidebar` sliders let engineers tune hyperparameters like `chunk_size`, `chunk_overlap`, and `top_k` in real time.
+- `st.session_state` caches vector stores and chat history across user interactions so documents do not need to be re-embedded on every click.
+
+# Section 5: RAG Tuning & Grounding Best Practices
+- Set LLM `temperature=0.0` for factual Q&A so the generator strictly adheres to the retrieved context.
+- Instruct the model in the system prompt to state clearly when the answer cannot be found in the provided context.
+- Preserve `metadata["source"]` and `metadata["page"]` on every `Document` chunk so your application can cite exact filenames and page numbers.
